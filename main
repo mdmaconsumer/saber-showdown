@@ -178,7 +178,7 @@ local function kill_aura()
 			continue
 		end
 		
-		local distance = (root.Position - target_root.Position)
+		local distance = (root.Position - target_root.Position).Magnitude
 		
 		if distance <= config.killaura_distance then
 			lightsaber_remotes.Kata:FireServer()
