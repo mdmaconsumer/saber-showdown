@@ -1,0 +1,226 @@
+local client_storage = game:GetService("ReplicatedStorage")
+local user_input = game:GetService("UserInputService")
+local run_service = game:GetService("RunService")
+local players = game:GetService("Players")
+
+local lightsaber_remotes = client_storage:FindFirstChild("LightsaberRemotes")
+
+local player = players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local root = character:WaitForChild("HumanoidRootPart")
+
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/insanedude59/SplixUiLib/main/Main"))()
+
+local camera = workspace.CurrentCamera
+local keys = {
+	["W"] = 0;
+	["A"] = 0;
+	["S"] = 0;
+	["D"] = 0;
+}
+local menu = {}
+menu.__index = menu
+
+local config = {
+	invisibility_toggle = false,
+	
+	flight_toggle = false,
+	flight_speed = 100,
+	
+	killaura_toggle = false,
+	killaura_distance = 15,
+	
+	esp_toggle = false,
+}
+
+function menu.create(title)
+	local self = setmetatable(menu, {})
+	
+	self.main = library:new({
+		textsize = 13.5;
+		font = Enum.Font.RobotoMono;
+		name = title;
+		color = BrickColor.Random().Color;
+	})
+	self.tabs = {}
+	self.sections = {}
+
+	return self
+end
+
+local main_menu = menu.create("saber showdown")
+
+--// player
+local player_tab = main_menu.main:page({
+	name = "player"
+})
+local main_player = player_tab:section({
+	name = "";
+	side = "left";
+	size = 185;
+})
+
+local invisibility_toggle = main_player:toggle({
+	name = "invisibility";
+	flag = "invisibility_toggle";
+	def = config.invisibility_toggle
+})
+
+invisibility_toggle.callback = function(value)
+	config.invisibility_toggle = value;
+end
+
+local esp_toggle = main_player:toggle({
+	name = "esp";
+	flag = "esp_toggle";
+	def = config.esp_toggle;
+})
+
+esp_toggle.callback = function(value)
+	config.esp_toggle = value;
+end
+
+--// movement
+local movement_tab = main_menu.main:page({
+	name = "movement"
+})
+local main_movement = movement_tab:section({
+	name = "";
+	side = "left";
+	size = 185;
+})
+
+local flight_toggle = main_movement:toggle({
+	name = "fly";
+	flag = "flight_toggle";
+	def = config.flight_toggle
+})
+
+flight_toggle.callback = function(value)
+	config.flight_toggle = value;
+end
+
+local flight_speed = main_movement:slider({
+	name = "flight speed";
+	flag = "flight_speed";
+	def = config.flight_speed;
+	min = 0; max = 300;
+	rounding = true;
+})
+
+flight_speed.callback = function(value)
+	config.flight_speed = value;
+end
+--//
+
+local combat_tab = main_menu.main:page({
+	name = "combat"
+})
+local main_combat = combat_tab:section({
+	name = "";
+	side = "left";
+	size = 185;
+})
+
+local killaura_toggle = main_combat:toggle({
+	name = "killaura";
+	flag = "killaura_toggle";
+	def = config.killaura_toggle
+})
+
+killaura_toggle.callback = function(value)
+	config.killaura_toggle = value;
+end
+
+local killaura_distance = main_combat:slider({
+	name = "distance";
+	flag = "killaura_distance";
+	def = config.killaura_distance;
+	min = 0; max = 300;
+	rounding = true;
+})
+
+killaura_distance.callback = function(value)
+	config.killaura_distance = value;
+end
+
+-- \\
+
+user_input.InputBegan:Connect(function(input, game_event)
+	if game_event then
+		return
+	end
+
+	if not keys[input.KeyCode.Name] then
+		return
+	end
+
+	keys[input.KeyCode.Name] = 1
+end)
+user_input.InputEnded:Connect(function(input, game_event)
+	if game_event then
+		return
+	end
+	
+	if not keys[input.KeyCode.Name] then
+		return
+	end
+	
+	keys[input.KeyCode.Name] = 0
+end)
+
+local function kill_aura()
+	for _, target in pairs(players:GetPlayers()) do
+		local target_character = target.Character
+		local target_root = target_character and target_character:FindFirstChild("HumanoidRootPart")
+		
+		if not target_root then
+			continue
+		end
+		
+		local distance = (root.Position - target_root.Position)
+		
+		if distance <= config.killaura_distance then
+			lightsaber_remotes.Kata:FireServer()
+		end
+	end
+end
+
+local transparency_cache = {}
+local function do_invisible(bool)
+	if bool then
+		for _, object in pairs(character:GetDescendants()) do
+			if object:IsA("BasePart") or object:IsA("Decal") then
+				if not transparency_cache[object] then
+					transparency_cache[object] = object.Transparency
+				end
+				
+				object.Transparency = 1
+			end
+		end
+	else
+		for _, object in pairs(character:GetDescendants()) do
+			if object:IsA("BasePart") or object:IsA("Decal") then
+				object.Transparency = transparency_cache[object]
+			end
+		end
+	end
+end
+
+--#
+
+run_service.RenderStepped:Connect(function()
+	if config.invisibility_toggle then
+		do_invisible(true)
+	else
+		do_invisible(false)
+	end
+	
+	if config.killaura_toggle then
+		task.spawn(kill_aura)
+	end
+	
+	if config.flight_toggle then
+		root.Velocity = ((camera.CFrame.RightVector * (keys.D - keys.A) + camera.CFrame.LookVector * (keys.W - keys.S)) * config.flight_speed)
+	end
+end)
